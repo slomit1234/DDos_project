@@ -6,6 +6,7 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <sys/time.h>
+#include <time.h>
 
 unsigned short csum(unsigned short *ptr, int nbytes);
 
@@ -84,30 +85,33 @@ int main(int argc, char *argv[])
 
     // Send the SYN packets in a loop %% moment of truth need to change to j< 10K
     int i, j;
-    struct timeval start_total, end_total;
-    struct timeval start, end;
-    gettimeofday(&start_total, NULL);
-    
+	clock_t start, end;
+	clock_t t;
+	
     for (i = 0; i < 100; i++) {
-        for (j = 0; j < 10; j++) {
-            gettimeofday(&start, NULL);
+        for (j = 0; j < 100; j++) {
+			start = clock();
             if (sendto(sock, packet, sizeof(struct iphdr) + sizeof(struct tcphdr), 0, (struct sockaddr *) &target_addr, sizeof(target_addr)) < 0) {
                 perror("sendto()");
                 exit(1);
             }
-            gettimeofday(&end, NULL);
+			end = clock();
             // write packet index and time to file
-            fprintf(f, "%d\t%f\n", i, (end.tv_sec - start.tv_sec));
+			t += (end - start);
+            fprintf(f, "%d\t%f\n", (i)*100 + (j+1), ((double)(end - start))/CLOCKS_PER_SEC);
+			//printf("***%d-> %f - %f = %f\n***", (i)*100 + (j+1), (double)(end), (double)(start), ((double)(end - start))/CLOCKS_PER_SEC);
         }
-        //usleep(1000); // Wait for 1ms before sending %% delete?
     }
-    gettimeofday(&end_total, NULL);
-    double total_time = (double)end_total.tv_sec - start_total.tv_sec;
+	
     // calculate average time to send a packet %%change to 1m
-    double avg_time = total_time / 1000000;
-    // append average time to file
-    fprintf(f, "Total time: %f\nAverage time per packet: %f", total_time, avg_time);
-    // close file
+    double avg_time =((double)t) /CLOCKS_PER_SEC;
+	avg_time = avg_time / 10000;
+    
+	// append average time to file
+    fprintf(f, "Total time: %f sec\nAverage time per packet: %f sec", ((double)t) /CLOCKS_PER_SEC, avg_time);
+	//printf("***Total time: %f\nAverage time per packet: %f - %f = %f ", ((double)t) /CLOCKS_PER_SEC,(double)end_total, (double)start_total, avg_time);
+    
+	// close file
     fclose(f);
     
 }
